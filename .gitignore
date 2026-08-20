@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.so
+.Python
+env/ venv/ .venv/
+*.egg-info/ dist/ build/
+node_modules/ .next/ out/ dist/
+*.log
+.vscode/ .idea/ *.swp
+.DS_Store
+.env .env.local
+.env

@@ -20,6 +20,7 @@ export function useBountyManager() {
       const result = await genlayerClient.writeContract({
         address: BOUNTYMANAGER_ADDRESS,
         functionName: "createBounty",
+        value: BigInt(0),
         args: [title, description, rewardAmount, evidenceUrl, expectedEvidence],
       })
       return result
@@ -38,6 +39,7 @@ export function useBountyManager() {
       const result = await genlayerClient.writeContract({
         address: BOUNTYMANAGER_ADDRESS,
         functionName: "submitWork",
+        value: BigInt(0),
         args: [bountyId, proofUrl],
       })
       return result

@@ -19,6 +19,7 @@ export function useClaimGuard() {
       const result = await genlayerClient.writeContract({
         address: CLAIMGUARD_ADDRESS,
         functionName: "createClaim",
+        value: BigInt(0),
         args: [url, expectedContent, description, category],
       })
       return result

@@ -23,7 +23,7 @@ export function Navbar() {
           </Link>
 
           <div className="flex items-center gap-3">
-            <a href="https://github.com/anaraydinli/genlayer-claimguard" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/anaraydinli55/genlayer-claimguard" target="_blank" rel="noopener noreferrer">
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Github className="w-5 h-5" />
               </Button>
@@ -37,11 +37,7 @@ export function Navbar() {
               <Sun className="w-5 h-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute w-5 h-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
-            <ConnectButton 
-              showBalance={false}
-              chainStatus="icon"
-              accountStatus="address"
-            />
+            <ConnectButton showBalance={false} chainStatus="icon" accountStatus="address" />
           </div>
         </div>
       </div>

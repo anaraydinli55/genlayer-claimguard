@@ -11,14 +11,10 @@ const queryClient = new QueryClient()
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useTheme()
-
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          theme={resolvedTheme === "dark" ? darkTheme() : lightTheme()}
-          modalSize="compact"
-        >
+        <RainbowKitProvider theme={resolvedTheme === "dark" ? darkTheme() : lightTheme()}>
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>

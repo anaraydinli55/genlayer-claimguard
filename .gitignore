@@ -36,3 +36,13 @@ frontend/.next/
 .venv/
 frontend/node_modules/
 
+.vercel
+.env*
+
+# Deploy scripts
+deploy.mjs
+get_address.mjs
+init.mjs
+test_real.mjs
+deploy.compiled.js
+

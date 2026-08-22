@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { useClaimGuard } from "@/hooks/use-claimguard"
 
 const CATEGORIES = [
   { value: "prediction_market", label: "Prediction Market" },
@@ -21,16 +22,21 @@ export function CreateClaimForm() {
   const [expected, setExpected] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("custom")
-  const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<string | null>(null)
+  
+  const { createClaim, loading, error } = useClaimGuard()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    setResult(`Claim submitted! ID: #${Math.floor(Math.random() * 1000) + 1}`)
-    setSubmitting(false)
-    setUrl(""); setExpected(""); setDescription("")
+    setResult(null)
+    
+    try {
+      const txResult = await createClaim(url, expected, description, category)
+      setResult(`Claim submitted successfully! Transaction: ${txResult}`)
+      setUrl(""); setExpected(""); setDescription("")
+    } catch (err: any) {
+      setResult(`Error: ${err.message}`)
+    }
   }
 
   return (
@@ -64,10 +70,13 @@ export function CreateClaimForm() {
               ))}
             </div>
           </div>
-          <Button type="submit" variant="gradient" className="w-full gap-2" disabled={submitting}>
-            <Send className="w-4 h-4" /> {submitting ? "Submitting..." : "Submit Claim"}
+          <Button type="submit" variant="gradient" className="w-full gap-2" disabled={loading}>
+            <Send className="w-4 h-4" /> {loading ? "Submitting..." : "Submit Claim"}
           </Button>
-          {result && (
+          {error && (
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>
+          )}
+          {result && !error && (
             <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-sm">{result}</div>
           )}
         </form>

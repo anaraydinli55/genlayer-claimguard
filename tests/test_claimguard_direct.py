@@ -15,7 +15,7 @@ class TestClaimGuardDirect:
 
         # Mock web and LLM responses
         direct_vm.mock_web(r".*example\.com.*", {"status": 200, "body": "Test content found here"})
-        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":0.85,"reasoning":"Matches","evidence_summary":"Found"}')
+        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":"0.85","reasoning":"Matches","evidence_summary":"Found"}')
 
         # Create claim
         cid = contract.createClaim("https://example.com", "content", "desc", "fact_check")
@@ -26,7 +26,7 @@ class TestClaimGuardDirect:
 
         # Appeal
         result = contract.appealClaim(cid)
-        assert "appeal #1" in result
+        assert "Appeal #1" in result
         assert contract.getClaim(cid)["status"] == "pending"
 
         # Re-resolve
@@ -39,7 +39,7 @@ class TestClaimGuardDirect:
         contract.init()
 
         direct_vm.mock_web(r".*", {"status": 200, "body": "evidence"})
-        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":0.9,"reasoning":"ok","evidence_summary":"ok"}')
+        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":"0.9","reasoning":"ok","evidence_summary":"ok"}')
 
         for i in range(5):
             contract.createClaim(f"https://site{i}.com", f"content{i}", f"desc{i}", "fact_check")
@@ -51,7 +51,7 @@ class TestClaimGuardDirect:
 
         stats = contract.getStats()
         assert stats["verified"] == '5'
-        assert stats["success_rate"] == "1.0"
+        assert stats["success_rate"] == 1.0
 
     def test_category_filtering(self, direct_vm, direct_deploy):
         """Test getClaimsByCategory"""
@@ -74,14 +74,14 @@ class TestClaimGuardDirect:
         contract.init()
 
         direct_vm.mock_web(r".*", {"status": 200, "body": "wrong content"})
-        direct_vm.mock_llm(r".*", '{"verdict":"REJECTED","confidence":0.95,"reasoning":"No match","evidence_summary":"Different"}')
+        direct_vm.mock_llm(r".*", '{"verdict":"REJECTED","confidence":"0.95","reasoning":"No match","evidence_summary":"Different"}')
 
         cid = contract.createClaim("https://example.com", "expected", "desc", "fact_check")
         status = contract.resolveClaim(cid)
 
         assert status == "rejected"
         claim = contract.getClaim(cid)
-        assert claim["votes_against"] == "1"
+        assert claim["votes_against"] == 1
 
     def test_inconclusive_low_confidence(self, direct_vm, direct_deploy):
         """Test inconclusive when confidence < 0.7"""
@@ -89,7 +89,7 @@ class TestClaimGuardDirect:
         contract.init()
 
         direct_vm.mock_web(r".*", {"status": 200, "body": "ambiguous"})
-        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":0.5,"reasoning":"Maybe","evidence_summary":"Unclear"}')
+        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":"0.5","reasoning":"Maybe","evidence_summary":"Unclear"}')
 
         cid = contract.createClaim("https://example.com", "x", "x", "fact_check")
         status = contract.resolveClaim(cid)
@@ -158,7 +158,7 @@ class TestClaimGuardDirect:
         contract.init()
 
         direct_vm.mock_web(r".*", {"status": 200, "body": "content"})
-        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":0.85,"reasoning":"ok","evidence_summary":"ok"}')
+        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":"0.85","reasoning":"ok","evidence_summary":"ok"}')
 
         cid = contract.createClaim("https://example.com", "x", "x", "fact_check")
 
@@ -167,7 +167,7 @@ class TestClaimGuardDirect:
 
         # Clear mocks and set different response for validator
         direct_vm.clear_mocks()
-        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":0.85,"reasoning":"ok","evidence_summary":"ok"}')
+        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":"0.85","reasoning":"ok","evidence_summary":"ok"}')
 
         # Run validator - should agree
 
@@ -189,7 +189,7 @@ class TestClaimGuardDirect:
         # Resolve non-pending claim
         cid = contract.createClaim("https://x.com", "x", "x", "fact_check")
         direct_vm.mock_web(r".*", {"status": 200, "body": "x"})
-        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":0.9,"reasoning":"x","evidence_summary":"x"}')
+        direct_vm.mock_llm(r".*", '{"verdict":"VERIFIED","confidence":"0.9","reasoning":"x","evidence_summary":"x"}')
         contract.resolveClaim(cid)
 
         with pytest.raises(ValueError, match="already"):

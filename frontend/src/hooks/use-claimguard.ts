@@ -31,6 +31,44 @@ export function useClaimGuard() {
     }
   }, [])
 
+  const resolveClaim = useCallback(async (claimId: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await genlayerClient.writeContract({
+        address: CLAIMGUARD_ADDRESS,
+        functionName: "resolveClaim",
+        value: BigInt(0),
+        args: [claimId],
+      })
+      return result
+    } catch (err: any) {
+      setError(err.message)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const appealClaim = useCallback(async (claimId: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await genlayerClient.writeContract({
+        address: CLAIMGUARD_ADDRESS,
+        functionName: "appealClaim",
+        value: BigInt(0),
+        args: [claimId],
+      })
+      return result
+    } catch (err: any) {
+      setError(err.message)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const getClaim = useCallback(async (claimId: number) => {
     try {
       const result = await genlayerClient.readContract({
@@ -73,5 +111,5 @@ export function useClaimGuard() {
     }
   }, [])
 
-  return { createClaim, getClaim, getAllClaims, getStats, loading, error }
+  return { createClaim, resolveClaim, appealClaim, getClaim, getAllClaims, getStats, loading, error }
 }

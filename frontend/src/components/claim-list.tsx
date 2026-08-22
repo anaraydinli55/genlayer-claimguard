@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Search, ExternalLink, MessageSquare, ShieldCheck } from "lucide-react"
+import { Search, ExternalLink, MessageSquare, ShieldCheck, Gavel, RotateCcw } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,7 @@ import {
   formatDate,
 } from "@/lib/utils"
 import { genlayerClient, CLAIMGUARD_ADDRESS } from "@/lib/genlayer-client"
+import { useClaimGuard } from "@/hooks/use-claimguard"
 
 interface Claim {
   id: number
@@ -32,6 +33,9 @@ export function ClaimList() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
+  
+  const { resolveClaim, appealClaim } = useClaimGuard()
 
   useEffect(() => {
     async function loadClaims() {
@@ -105,6 +109,32 @@ export function ClaimList() {
 
     loadClaims()
   }, [])
+
+  const handleResolve = async (claimId: number) => {
+    setActionLoading(claimId)
+    try {
+      await resolveClaim(String(claimId))
+      // Refresh claims
+      window.location.reload()
+    } catch (err: any) {
+      alert(`Resolve failed: ${err.message}`)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleAppeal = async (claimId: number) => {
+    setActionLoading(claimId)
+    try {
+      await appealClaim(String(claimId))
+      // Refresh claims
+      window.location.reload()
+    } catch (err: any) {
+      alert(`Appeal failed: ${err.message}`)
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const filtered = claims.filter((claim) => {
     const query = filter.toLowerCase()
@@ -234,22 +264,50 @@ export function ClaimList() {
                   </div>
                 </div>
 
-                {claim.url && (
-                  <a
-                    href={claim.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                <div className="flex gap-2">
+                  {claim.status === "pending" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => handleResolve(claim.id)}
+                      disabled={actionLoading === claim.id}
+                    >
+                      <Gavel className="w-4 h-4" />
+                      {actionLoading === claim.id ? "Resolving..." : "Resolve"}
+                    </Button>
+                  )}
+                  
+                  {claim.status !== "pending" && claim.appeal_count < 3 && (
                     <Button
                       variant="ghost"
                       size="sm"
                       className="gap-1"
+                      onClick={() => handleAppeal(claim.id)}
+                      disabled={actionLoading === claim.id}
                     >
-                      <ExternalLink className="w-4 h-4" />
-                      Evidence
+                      <RotateCcw className="w-4 h-4" />
+                      {actionLoading === claim.id ? "Appealing..." : "Appeal"}
                     </Button>
-                  </a>
-                )}
+                  )}
+
+                  {claim.url && (
+                    <a
+                      href={claim.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Evidence
+                      </Button>
+                    </a>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

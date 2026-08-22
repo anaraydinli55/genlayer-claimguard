@@ -40,9 +40,15 @@ class ClaimGuard(gl.Contract):
         return bool(resolvers.get(str(address), False))
 
     @gl.public.write
+    @gl.public.write
+    @gl.public.write
     def init(self):
         sender = str(gl.message.sender_address)
         self.owner = sender
+        self.claim_count = 0
+        self.min_stake = 100
+        self.claims = {}
+        self.resolvers = {}
         resolvers = self._load_resolvers()
         resolvers[sender] = True
         self._save_resolvers(resolvers)

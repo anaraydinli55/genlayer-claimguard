@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Send, Link, FileText, Tag, AlertCircle } from "lucide-react"
+import { Send, Link, FileText, Tag, AlertCircle, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useClaimGuard } from "@/hooks/use-claimguard"
+import { ConnectButton } from "@rainbow-me/rainbowkit"
 
 const CATEGORIES = [
   { value: "prediction_market", label: "Prediction Market" },
@@ -24,11 +25,16 @@ export function CreateClaimForm() {
   const [category, setCategory] = useState("custom")
   const [result, setResult] = useState<string | null>(null)
   
-  const { createClaim, loading, error } = useClaimGuard()
+  const { createClaim, loading, error, isConnected } = useClaimGuard()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setResult(null)
+    
+    if (!isConnected) {
+      setResult("Please connect your wallet first!")
+      return
+    }
     
     try {
       const txResult = await createClaim(url, expected, description, category)
@@ -46,6 +52,12 @@ export function CreateClaimForm() {
         <CardDescription>Provide a URL and expected content. Validators will fetch evidence and run AI consensus.</CardDescription>
       </CardHeader>
       <CardContent>
+        {!isConnected && (
+          <div className="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm flex items-center justify-between">
+            <span className="flex items-center gap-2"><Wallet className="w-4 h-4" /> Connect wallet to submit claims</span>
+            <ConnectButton />
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2"><Link className="w-4 h-4" /> Evidence URL</label>
@@ -70,7 +82,7 @@ export function CreateClaimForm() {
               ))}
             </div>
           </div>
-          <Button type="submit" variant="gradient" className="w-full gap-2" disabled={loading}>
+          <Button type="submit" variant="gradient" className="w-full gap-2" disabled={loading || !isConnected}>
             <Send className="w-4 h-4" /> {loading ? "Submitting..." : "Submit Claim"}
           </Button>
           {error && (

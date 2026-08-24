@@ -4,7 +4,7 @@ import { metaMask, walletConnect, injected } from "wagmi/connectors";
 import { defineChain } from "viem";
 
 export const genlayer = defineChain({
-  id: 493,
+  id: 4221,
   name: "GenLayer Bradbury",
   nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
   rpcUrls: {

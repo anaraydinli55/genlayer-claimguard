@@ -17,31 +17,28 @@ class ClaimGuard(gl.Contract):
         self.owner = ""
         self.claim_count = 0
         self.min_stake = 100
-        self.claims = '{}'
-        self.resolvers = '{}' 
+        self.claims = {}
+        self.resolvers = {}
 
     def _load_claims(self):
         claims_data = getattr(self, 'claims', '{}')
         if isinstance(claims_data, str):
             return json.loads(claims_data) if claims_data else {}
-        return claims_data if claims_data is not None else {}
-
+        return claims_data if claims_data else {}
     def _save_claims(self, claims):
-        self.claims = json.dumps(claims)
+        self.claims = claims
 
     def _load_resolvers(self):
-        resolvers_data = getattr(self, 'resolvers', '{}')
+        resolvers_data = getattr(self, 'resolvers', '[]')
         if isinstance(resolvers_data, str):
-            return json.loads(resolvers_data) if resolvers_data else {}
-        return resolvers_data if resolvers_data is not None else {}
-
+            return json.loads(resolvers_data) if resolvers_data else []
+        return resolvers_data if resolvers_data else []
     def _save_resolvers(self, resolvers):
-        self.resolvers = json.dumps(resolvers)
+        self.resolvers = resolvers
 
     def _is_resolver(self, address):
         resolvers = self._load_resolvers()
         return bool(resolvers.get(str(address), False))
-
 
     @gl.public.write
     def init(self):
@@ -49,12 +46,11 @@ class ClaimGuard(gl.Contract):
         self.owner = sender
         self.claim_count = 0
         self.min_stake = 100
-        self.claims = '{}'
-        self.resolvers = json.dumps({sender: True})
-
-    @gl.public.view
-    def getOwner(self) -> str:
-        return self.owner
+        self.claims = {}
+        self.resolvers = {}
+        resolvers = self._load_resolvers()
+        resolvers[sender] = True
+        self._save_resolvers(resolvers)
 
     @gl.public.write
     def createClaim(self, evidence_url: str, expected_content: str, description: str, category: str) -> str:
@@ -89,12 +85,14 @@ class ClaimGuard(gl.Contract):
         if claim["status"] != "pending":
             raise ValueError("Claim is already resolved")
 
+        # 1. WEB FETCH EŞDEĞERLİK AXINI (Strict Equivalence)
         def fetch_evidence() -> str:
             response = gl.nondet.web.get(claim["evidence_url"])
             return response.body.decode("utf-8")
 
         web_content = gl.eq_principle.strict_eq(fetch_evidence)
 
+        # 2. LLM KONSENSÜS DEĞERLENDİRME AXINI (strict_eq + exec_prompt)
         task = f"""
         Aşağıdakı iddia detallarını və veb səhifəsinin məzmununu analiz edin.
         Beklenen İçerik: {claim['expected_content']}
@@ -114,16 +112,21 @@ class ClaimGuard(gl.Contract):
         }
         """
 
+        # AI konsensüs axını rəsmi strict_eq metodu daxilində işə salınır
         def run_llm_judgment() -> str:
             raw_response = gl.nondet.exec_prompt(
                 task + "\nCriteria:\n" + criteria,
+                
             )
+            # Test mühitində dict qayıdarsa, onu string JSON-a çeviririk ki, 
+            # hər zaman və hər mühitdə eyni tipdə (str) təmiz nəticə qaytarsın.
             if isinstance(raw_response, dict):
                 return json.dumps(raw_response)
             return raw_response
 
         llm_raw_response = gl.eq_principle.strict_eq(run_llm_judgment)
 
+        # Gələn qərarı təmiz şəkildə parse edirik (Hər zaman str daxil olacaq!)
         try:
             data = json.loads(llm_raw_response)
         except Exception:

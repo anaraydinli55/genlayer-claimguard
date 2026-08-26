@@ -1,4 +1,4 @@
-# v0.1.0
+# v1.0.1
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 import json
 import genlayer.gl as gl
@@ -13,12 +13,12 @@ class ClaimGuard(gl.Contract):
         "custom",
     ]
 
-    def __init__(self):
-        self.owner = ""
-        self.claim_count = 0
-        self.min_stake = 100
-        self.claims = "{}"
-        self.resolvers = "{}"
+    # State variables MUST be class-level in GenLayer IC
+    owner = ""
+    claim_count = 0
+    min_stake = 100
+    claims = "{}"
+    resolvers = "{}"
 
     @gl.public.write
     def init(self):
@@ -39,6 +39,7 @@ class ClaimGuard(gl.Contract):
         self.claim_count += 1
         claims = self._load_claims()
         claims[str(self.claim_count)] = {
+            "id": str(self.claim_count),
             "creator": str(gl.message.sender_address),
             "evidence_url": evidence_url,
             "expected_content": expected_content,
@@ -49,12 +50,28 @@ class ClaimGuard(gl.Contract):
             "votes_against": 0,
             "appeal_count": 0,
             "reasoning": "",
+            "resolution": json.dumps({
+                "verdict": "PENDING",
+                "confidence": 0.0,
+                "reasoning": "",
+                "evidence_summary": ""
+            }),
+            "created_at": str(int(gl.block.timestamp)),
         }
         self._save_claims(claims)
+        gl.emit("ClaimCreated", {
+            "claim_id": str(self.claim_count),
+            "creator": str(gl.message.sender_address),
+            "category": category,
+            "evidence_url": evidence_url,
+        })
         return str(self.claim_count)
 
     @gl.public.write
     def resolveClaim(self, claim_id):
+        if not self._is_resolver(str(gl.message.sender_address)):
+            raise ValueError("Not an approved resolver")
+
         claims = self._load_claims()
         cid_str = str(claim_id)
         if cid_str not in claims:
@@ -69,9 +86,20 @@ class ClaimGuard(gl.Contract):
 
         web_content = gl.eq_principle.strict_eq(fetch_evidence)
 
-        task = "Aşağıdakı iddia detallarını və veb səhifəsinin məzmununu analiz edin.\n" +                "Beklenen İçerik: " + claim["expected_content"] + "\n" +                "Açıklama: " + claim["description"] + "\n" +                "Web Sayfası İçeriği:\n" + web_content[:15000]
+        task = (
+            "Analyze the following claim details and web page content.\n"
+            "Expected Content: " + claim["expected_content"] + "\n"
+            "Description: " + claim["description"] + "\n"
+            "Web Page Content:\n" + web_content[:15000]
+        )
 
-        criteria = "Talebi objektif bir hakim gibi değerlendirin. Kararınızı kesinlikle JSON formatında döndürün:\n" +                    '{\n    "verdict": "VERIFIED" | "REJECTED" | "INCONCLUSIVE",\n' +                    '    "confidence": 0.0 - 1.0 aralığında sayı,\n' +                    '    "reasoning": "kısa gerekçe açıklaması",\n' +                    '    "evidence_summary": "kanıtın özeti"\n}'
+        criteria = (
+            "Evaluate the claim objectively like a judge. Return STRICTLY in JSON format:\n"
+            '{\n    "verdict": "VERIFIED" | "REJECTED" | "INCONCLUSIVE",\n'
+            '    "confidence": number 0.0-1.0,\n'
+            '    "reasoning": "brief reasoning",\n'
+            '    "evidence_summary": "summary"\n}'
+        )
 
         def run_llm_judgment():
             raw_response = gl.nondet.exec_prompt(task + "\nCriteria:\n" + criteria)
@@ -86,10 +114,20 @@ class ClaimGuard(gl.Contract):
         except Exception:
             raise ValueError("Invalid LLM response")
 
-        verdict = str(data.get("verdict", "INCONCLUSIVE")).upper()
+        verdict = str(data.get("verdict", "INCONCLUSIVE")).upper().strip()
         confidence = float(data.get("confidence", 0.0))
+        reasoning = str(data.get("reasoning", ""))
+        evidence_summary = str(data.get("evidence_summary", ""))
+
+        if verdict not in ["VERIFIED", "REJECTED", "INCONCLUSIVE"]:
+            verdict = "INCONCLUSIVE"
+        if not (0.0 <= confidence <= 1.0):
+            confidence = 0.0
+            verdict = "INCONCLUSIVE"
         if confidence < 0.7:
             verdict = "INCONCLUSIVE"
+            if not reasoning:
+                reasoning = "Low confidence threshold not met."
 
         if verdict == "VERIFIED":
             claim["status"] = "verified"
@@ -100,9 +138,24 @@ class ClaimGuard(gl.Contract):
         else:
             claim["status"] = "inconclusive"
 
-        claim["reasoning"] = data.get("reasoning", "Düşük güvən nisbəti səbəbindən qərarsız qalındı.")
+        claim["reasoning"] = reasoning
+        claim["resolution"] = json.dumps({
+            "verdict": verdict,
+            "confidence": confidence,
+            "reasoning": reasoning,
+            "evidence_summary": evidence_summary,
+        })
+
         claims[cid_str] = claim
         self._save_claims(claims)
+
+        gl.emit("ClaimResolved", {
+            "claim_id": cid_str,
+            "verdict": verdict,
+            "confidence": str(confidence),
+            "resolver": str(gl.message.sender_address),
+        })
+
         return claim["status"]
 
     @gl.public.write
@@ -112,16 +165,28 @@ class ClaimGuard(gl.Contract):
         if cid_str not in claims:
             raise ValueError("Claim not found")
         claim = claims[cid_str]
+
+        if str(gl.message.sender_address) != claim["creator"]:
+            raise ValueError("Only the claim creator can appeal")
+
         if claim["status"] == "pending":
             raise ValueError("Claim is still pending")
         if claim["appeal_count"] >= 3:
-            raise ValueError("Max appeals reached")
+            raise ValueError("Maximum appeal count reached")
+
         claim["appeal_count"] += 1
-        if new_evidence_url != "":
-            claim["evidence_url"] = new_evidence_url
+        if new_evidence_url and new_evidence_url.strip() != "":
+            claim["evidence_url"] = new_evidence_url.strip()
         claim["status"] = "pending"
         claims[cid_str] = claim
         self._save_claims(claims)
+
+        gl.emit("ClaimAppealed", {
+            "claim_id": cid_str,
+            "appeal_count": str(claim["appeal_count"]),
+            "new_evidence_url": new_evidence_url,
+        })
+
         return "Appeal #" + str(claim["appeal_count"]) + " submitted successfully"
 
     @gl.public.view
@@ -133,13 +198,18 @@ class ClaimGuard(gl.Contract):
         return claims[cid_str]
 
     @gl.public.view
+    def getAllClaims(self):
+        return list(self._load_claims().values())
+
+    @gl.public.view
+    def getClaimsByStatus(self, status):
+        claims = self._load_claims()
+        return [c for c in claims.values() if c["status"] == status]
+
+    @gl.public.view
     def getClaimsByCategory(self, category):
         claims = self._load_claims()
-        result = []
-        for claim in claims.values():
-            if claim["category"] == category:
-                result.append(claim)
-        return result
+        return [c for c in claims.values() if c["category"] == category]
 
     @gl.public.view
     def getResolvers(self):
@@ -152,13 +222,13 @@ class ClaimGuard(gl.Contract):
         verified = sum(1 for c in claims.values() if c["status"] == "verified")
         rejected = sum(1 for c in claims.values() if c["status"] == "rejected")
         inconclusive = sum(1 for c in claims.values() if c["status"] == "inconclusive")
-        success_rate = float(verified / total) if total > 0 else "0"
+        success_rate = float(verified / total) if total > 0 else 0.0
         return {
             "total_claims": str(total),
             "verified": str(verified),
             "rejected": str(rejected),
             "inconclusive": str(inconclusive),
-            "success_rate": success_rate,
+            "success_rate": str(success_rate),
         }
 
     @gl.public.write

@@ -9,7 +9,7 @@ const client = createClient({
   account,
 });
 
-const CLAIMGUARD_ADDRESS = "0xB1689C7175dE871Fae1B747f0D37503f844d4b14";
+const CLAIMGUARD_ADDRESS = "0x1FDd7CA3dF62932D86291aE5A040440626672338";
 
 async function check() {
   console.log("🔍 Checking new contract...");

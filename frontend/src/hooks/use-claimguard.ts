@@ -68,7 +68,7 @@ export function useClaimGuard() {
     }
   }, [isConnected, getClient])
 
-  const appealClaim = useCallback(async (claimId: string) => {
+  const appealClaim = useCallback(async (claimId: string, newEvidenceUrl: string = "") => {
     if (!isConnected) throw new Error("Wallet not connected")
     setLoading(true)
     setError(null)
@@ -78,7 +78,7 @@ export function useClaimGuard() {
         address: CLAIMGUARD_ADDRESS,
         functionName: "appealClaim",
         value: BigInt(0),
-        args: [claimId],
+        args: [claimId, newEvidenceUrl],
       })
       return result
     } catch (err: any) {

@@ -26,7 +26,7 @@ export function useClaimGuard() {
     return createClient({
       chain: testnetBradbury,
       endpoint: "https://rpc-bradbury.genlayer.com",
-      account: { address: walletClient.account.address },
+      account: walletClient.account as any,
     })
   }, [walletClient])
 

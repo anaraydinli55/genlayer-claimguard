@@ -21,7 +21,7 @@ export function useClaimGuard() {
 
   const getWriteClient = useCallback(() => {
     if (!walletClient?.account?.address) {
-      throw new Error("No wallet connected. Please connect MetaMask.")
+      throw new Error("No wallet connected.")
     }
     return createClient({
       chain: testnetBradbury,
@@ -49,15 +49,6 @@ export function useClaimGuard() {
     }
   }, [isConnected, getWriteClient])
 
-  const getClaim = useCallback(async (claimId) => {
-    const client = getReadClient()
-    return await client.readContract({
-      address: CLAIMGUARD_ADDRESS,
-      functionName: "getClaim",
-      args: [claimId],
-    })
-  }, [getReadClient])
-
   const getAllClaims = useCallback(async () => {
     const client = getReadClient()
     return await client.readContract({
@@ -76,5 +67,5 @@ export function useClaimGuard() {
     })
   }, [getReadClient])
 
-  return { createClaim, getClaim, getAllClaims, getStats, loading, error, isConnected, address }
+  return { createClaim, getAllClaims, getStats, loading, error, isConnected, address }
 }

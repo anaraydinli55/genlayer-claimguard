@@ -40,6 +40,7 @@ export function useClaimGuard() {
         address: CLAIMGUARD_ADDRESS,
         functionName: "createClaim",
         args: [url, expectedContent, description, category],
+        value: 0n,
       })
     } catch (err: any) {
       setError(err.message)

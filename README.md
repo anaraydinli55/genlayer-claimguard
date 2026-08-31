@@ -164,3 +164,8 @@ Get test GEN tokens:
 ## License
 
 MIT
+
+## Deploy
+- **Network:** GenLayer Bradbury Testnet
+- **Contract Address:** `0x42f58D65B39F05d3cD95B9Fb8a021d7EC6998985`
+- **Explorer:** https://explorer-bradbury.genlayer.com/address/0x42f58D65B39F05d3cD95B9Fb8a021d7EC6998985

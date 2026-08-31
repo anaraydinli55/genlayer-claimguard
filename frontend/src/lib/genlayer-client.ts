@@ -1,5 +1,6 @@
 import { createClient } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
+import { testnetBradbury } from "genlayer-js/chains";
 
 export const genlayerClient = createClient({
   chain: testnetBradbury,

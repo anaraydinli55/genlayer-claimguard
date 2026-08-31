@@ -12,127 +12,69 @@ export function useClaimGuard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const getClient = useCallback(() => {
-    if (!walletClient) throw new Error("No wallet connected. Please connect MetaMask.")
+  const getReadClient = useCallback(() => {
     return createClient({
       chain: testnetBradbury,
       endpoint: "https://rpc-bradbury.genlayer.com",
-      account: walletClient.account,
+    })
+  }, [])
+
+  const getWriteClient = useCallback(() => {
+    if (!walletClient?.account?.address) {
+      throw new Error("No wallet connected. Please connect MetaMask.")
+    }
+    return createClient({
+      chain: testnetBradbury,
+      endpoint: "https://rpc-bradbury.genlayer.com",
+      account: { address: walletClient.account.address },
     })
   }, [walletClient])
 
-  const createClaim = useCallback(async (
-    url: string,
-    expectedContent: string,
-    description: string,
-    category: string = "custom"
-  ) => {
+  const createClaim = useCallback(async (url, expectedContent, description, category = "custom") => {
     if (!isConnected) throw new Error("Wallet not connected")
     setLoading(true)
     setError(null)
     try {
-      const client = getClient()
-      const result = await client.writeContract({
+      const client = getWriteClient()
+      return await client.writeContract({
         address: CLAIMGUARD_ADDRESS,
         functionName: "createClaim",
-        value: BigInt(0),
         args: [url, expectedContent, description, category],
       })
-      return result
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message)
       throw err
     } finally {
       setLoading(false)
     }
-  }, [isConnected, getClient])
+  }, [isConnected, getWriteClient])
 
-  const resolveClaim = useCallback(async (claimId: string) => {
-    if (!isConnected) throw new Error("Wallet not connected")
-    setLoading(true)
-    setError(null)
-    try {
-      const client = getClient()
-      const result = await client.writeContract({
-        address: CLAIMGUARD_ADDRESS,
-        functionName: "resolveClaim",
-        value: BigInt(0),
-        args: [claimId],
-      })
-      return result
-    } catch (err: any) {
-      setError(err.message)
-      throw err
-    } finally {
-      setLoading(false)
-    }
-  }, [isConnected, getClient])
-
-  const appealClaim = useCallback(async (claimId: string, newEvidenceUrl: string = "") => {
-    if (!isConnected) throw new Error("Wallet not connected")
-    setLoading(true)
-    setError(null)
-    try {
-      const client = getClient()
-      const result = await client.writeContract({
-        address: CLAIMGUARD_ADDRESS,
-        functionName: "appealClaim",
-        value: BigInt(0),
-        args: [claimId, newEvidenceUrl],
-      })
-      return result
-    } catch (err: any) {
-      setError(err.message)
-      throw err
-    } finally {
-      setLoading(false)
-    }
-  }, [isConnected, getClient])
-
-  const getClaim = useCallback(async (claimId: number) => {
-    try {
-      const client = getClient()
-      const result = await client.readContract({
-        address: CLAIMGUARD_ADDRESS,
-        functionName: "getClaim",
-        args: [claimId],
-      })
-      return result
-    } catch (err: any) {
-      setError(err.message)
-      throw err
-    }
-  }, [getClient])
+  const getClaim = useCallback(async (claimId) => {
+    const client = getReadClient()
+    return await client.readContract({
+      address: CLAIMGUARD_ADDRESS,
+      functionName: "getClaim",
+      args: [claimId],
+    })
+  }, [getReadClient])
 
   const getAllClaims = useCallback(async () => {
-    try {
-      const client = getClient()
-      const result = await client.readContract({
-        address: CLAIMGUARD_ADDRESS,
-        functionName: "getAllClaims",
-        args: [],
-      })
-      return result
-    } catch (err: any) {
-      setError(err.message)
-      throw err
-    }
-  }, [getClient])
+    const client = getReadClient()
+    return await client.readContract({
+      address: CLAIMGUARD_ADDRESS,
+      functionName: "getAllClaims",
+      args: [],
+    })
+  }, [getReadClient])
 
   const getStats = useCallback(async () => {
-    try {
-      const client = getClient()
-      const result = await client.readContract({
-        address: CLAIMGUARD_ADDRESS,
-        functionName: "getStats",
-        args: [],
-      })
-      return result
-    } catch (err: any) {
-      setError(err.message)
-      throw err
-    }
-  }, [getClient])
+    const client = getReadClient()
+    return await client.readContract({
+      address: CLAIMGUARD_ADDRESS,
+      functionName: "getStats",
+      args: [],
+    })
+  }, [getReadClient])
 
-  return { createClaim, resolveClaim, appealClaim, getClaim, getAllClaims, getStats, loading, error, isConnected, address }
+  return { createClaim, getClaim, getAllClaims, getStats, loading, error, isConnected, address }
 }

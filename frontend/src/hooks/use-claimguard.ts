@@ -30,7 +30,7 @@ export function useClaimGuard() {
     })
   }, [walletClient])
 
-  const createClaim = useCallback(async (url, expectedContent, description, category = "custom") => {
+  const createClaim = useCallback(async (url: string, expectedContent: string, description: string, category: string = "custom") => {
     if (!isConnected) throw new Error("Wallet not connected")
     setLoading(true)
     setError(null)
@@ -41,7 +41,7 @@ export function useClaimGuard() {
         functionName: "createClaim",
         args: [url, expectedContent, description, category],
       })
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message)
       throw err
     } finally {

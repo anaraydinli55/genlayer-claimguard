@@ -23,10 +23,15 @@ export function useClaimGuard() {
     if (!walletClient?.account?.address) {
       throw new Error("No wallet connected.")
     }
+    const ethProvider = (window as any).ethereum
+    if (!ethProvider) {
+      throw new Error("No Ethereum provider found.")
+    }
     return createClient({
       chain: testnetBradbury,
       endpoint: "https://rpc-bradbury.genlayer.com",
-      account: walletClient.account as any,
+      account: walletClient.account.address,
+      provider: ethProvider,
     })
   }, [walletClient])
 

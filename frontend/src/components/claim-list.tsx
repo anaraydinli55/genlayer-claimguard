@@ -1,14 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Search, ExternalLink, MessageSquare, ShieldCheck, Gavel, RotateCcw } from "lucide-react"
+import { Search, ExternalLink, ShieldCheck } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getStatusColor, getCategoryLabel, formatAddress, formatDate } from "@/lib/utils"
 import { genlayerClient, CLAIMGUARD_ADDRESS } from "@/lib/genlayer-client"
-import { useClaimGuard } from "@/hooks/use-claimguard"
 
 interface Claim {
   id: number
@@ -30,10 +29,6 @@ export function ClaimList() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [actionLoading, setActionLoading] = useState<number | null>(null)
-  const [appealUrl, setAppealUrl] = useState<string>("")
-
-  const { resolveClaim, appealClaim } = useClaimGuard()
 
   useEffect(() => {
     async function loadClaims() {
@@ -73,31 +68,6 @@ export function ClaimList() {
 
     loadClaims()
   }, [])
-
-  const handleResolve = async (claimId: number) => {
-    setActionLoading(claimId)
-    try {
-      await resolveClaim(String(claimId))
-      window.location.reload()
-    } catch (err: any) {
-      alert(`Resolve failed: ${err.message}`)
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const handleAppeal = async (claimId: number) => {
-    setActionLoading(claimId)
-    try {
-      await appealClaim(String(claimId), appealUrl)
-      setAppealUrl("")
-      window.location.reload()
-    } catch (err: any) {
-      alert(`Appeal failed: ${err.message}`)
-    } finally {
-      setActionLoading(null)
-    }
-  }
 
   const filtered = claims.filter((claim) => {
     const query = filter.toLowerCase()
@@ -142,49 +112,22 @@ export function ClaimList() {
                     <span className="text-sm font-mono text-muted-foreground">#{claim.id}</span>
                     <Badge variant="outline" className={getStatusColor(claim.status)}>{claim.status}</Badge>
                     <Badge variant="secondary" className="text-xs">{getCategoryLabel(claim.category)}</Badge>
-                    {claim.appeal_count > 0 && (
-                      <Badge variant="outline" className="text-xs gap-1"><MessageSquare className="w-3 h-3" />{claim.appeal_count} appeals</Badge>
-                    )}
                   </div>
 
                   <p className="text-sm font-medium">{claim.description}</p>
                   <p className="text-xs text-muted-foreground">Expected: {claim.expected_content}</p>
-
-                  {claim.reasoning && claim.status !== "pending" && (
-                    <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                      <span className="font-semibold">Reasoning:</span> {claim.reasoning}
-                    </div>
-                  )}
 
                   <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                     <span>By {formatAddress(claim.creator)}</span>
                     <span>•</span>
                     <span>{formatDate(claim.created_at)}</span>
                     {claim.confidence > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" />Confidence: {(claim.confidence * 100).toFixed(0)}%</span>
-                      </>
+                      <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" />Confidence: {(claim.confidence * 100).toFixed(0)}%</span>
                     )}
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  {claim.status === "pending" && (
-                    <Button variant="outline" size="sm" className="gap-1" onClick={() => handleResolve(claim.id)} disabled={actionLoading === claim.id}>
-                      <Gavel className="w-4 h-4" />{actionLoading === claim.id ? "Resolving..." : "Resolve"}
-                    </Button>
-                  )}
-
-                  {claim.status !== "pending" && claim.appeal_count < 3 && (
-                    <div className="flex flex-col gap-2">
-                      <Input placeholder="New evidence URL (optional)" value={appealUrl} onChange={(e) => setAppealUrl(e.target.value)} className="text-xs h-8" />
-                      <Button variant="ghost" size="sm" className="gap-1" onClick={() => handleAppeal(claim.id)} disabled={actionLoading === claim.id}>
-                        <RotateCcw className="w-4 h-4" />{actionLoading === claim.id ? "Appealing..." : "Appeal"}
-                      </Button>
-                    </div>
-                  )}
-
                   {claim.evidence_url && (
                     <a href={claim.evidence_url} target="_blank" rel="noopener noreferrer">
                       <Button variant="ghost" size="sm" className="gap-1"><ExternalLink className="w-4 h-4" />Evidence</Button>

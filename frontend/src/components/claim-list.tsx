@@ -1,13 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Search, ExternalLink, ShieldCheck } from "lucide-react"
+import { Search, ExternalLink, ShieldCheck, Gavel, RotateCcw, ChevronDown, ChevronUp } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getStatusColor, getCategoryLabel, formatAddress, formatDate } from "@/lib/utils"
 import { genlayerClient, CLAIMGUARD_ADDRESS } from "@/lib/genlayer-client"
+import { useClaimGuard } from "@/hooks/use-claimguard"
+import { ResolveClaimForm } from "@/components/resolve-claim-form"
+import { AppealClaimForm } from "@/components/appeal-claim-form"
+import { useAccount } from "wagmi"
 
 interface Claim {
   id: number
@@ -21,6 +25,8 @@ interface Claim {
   confidence: number
   reasoning: string
   expected_content: string
+  verdict: string
+  evidence_summary: string
 }
 
 export function ClaimList() {
@@ -29,19 +35,31 @@ export function ClaimList() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [expandedClaim, setExpandedClaim] = useState<number | null>(null)
+  const [ownerAddress, setOwnerAddress] = useState<string>("")
+  
+  const { getOwner } = useClaimGuard()
+  const { address } = useAccount()
+
+  useEffect(() => {
+    async function loadOwner() {
+      try {
+        const owner = await getOwner()
+        setOwnerAddress(String(owner || ""))
+      } catch (e) { console.error("Failed to load owner", e) }
+    }
+    loadOwner()
+  }, [getOwner])
 
   useEffect(() => {
     async function loadClaims() {
       try {
-        setLoading(true)
-        setError("")
-
+        setLoading(true); setError("")
         const result = await genlayerClient.readContract({
           address: CLAIMGUARD_ADDRESS,
           functionName: "getAllClaims",
           args: [],
         }) as any[]
-
         const parsed: Claim[] = (result || []).map((raw: any) => ({
           id: Number(raw?.id ?? 0),
           creator: String(raw?.creator ?? ""),
@@ -54,20 +72,46 @@ export function ClaimList() {
           confidence: Number(raw?.confidence ?? 0),
           reasoning: String(raw?.reasoning ?? ""),
           expected_content: String(raw?.expected_content ?? ""),
+          verdict: String(raw?.verdict ?? "PENDING"),
+          evidence_summary: String(raw?.evidence_summary ?? ""),
         }))
-
         setClaims(parsed.reverse())
       } catch (err) {
         console.error(err)
         setError("Claims could not be loaded.")
         setClaims([])
-      } finally {
-        setLoading(false)
-      }
+      } finally { setLoading(false) }
     }
-
     loadClaims()
   }, [])
+
+  const refreshClaims = async () => {
+    try {
+      setLoading(true)
+      const result = await genlayerClient.readContract({
+        address: CLAIMGUARD_ADDRESS,
+        functionName: "getAllClaims",
+        args: [],
+      }) as any[]
+      const parsed: Claim[] = (result || []).map((raw: any) => ({
+        id: Number(raw?.id ?? 0),
+        creator: String(raw?.creator ?? ""),
+        evidence_url: String(raw?.evidence_url ?? ""),
+        description: String(raw?.description ?? ""),
+        category: String(raw?.category ?? ""),
+        status: String(raw?.status ?? "pending"),
+        created_at: Number(raw?.created_at ?? 0),
+        appeal_count: Number(raw?.appeal_count ?? 0),
+        confidence: Number(raw?.confidence ?? 0),
+        reasoning: String(raw?.reasoning ?? ""),
+        expected_content: String(raw?.expected_content ?? ""),
+        verdict: String(raw?.verdict ?? "PENDING"),
+        evidence_summary: String(raw?.evidence_summary ?? ""),
+      }))
+      setClaims(parsed.reverse())
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }
 
   const filtered = claims.filter((claim) => {
     const query = filter.toLowerCase()
@@ -80,6 +124,7 @@ export function ClaimList() {
   })
 
   const statuses = ["all", "pending", "verified", "rejected", "inconclusive"]
+  const isOwner = address?.toLowerCase() === ownerAddress.toLowerCase()
 
   return (
     <div className="space-y-6">
@@ -112,18 +157,28 @@ export function ClaimList() {
                     <span className="text-sm font-mono text-muted-foreground">#{claim.id}</span>
                     <Badge variant="outline" className={getStatusColor(claim.status)}>{claim.status}</Badge>
                     <Badge variant="secondary" className="text-xs">{getCategoryLabel(claim.category)}</Badge>
+                    {claim.appeal_count > 0 && <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600">Appeal #{claim.appeal_count}</Badge>}
                   </div>
 
                   <p className="text-sm font-medium">{claim.description}</p>
                   <p className="text-xs text-muted-foreground">Expected: {claim.expected_content}</p>
 
+                  {claim.status !== "pending" && (
+                    <div className="space-y-1 p-3 rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-3 h-3 text-violet-500" />
+                        <span className="text-xs font-medium">Verdict: {claim.verdict}</span>
+                        {claim.confidence > 0 && <span className="text-xs text-muted-foreground">({(claim.confidence * 100).toFixed(0)}% confidence)</span>}
+                      </div>
+                      {claim.reasoning && <p className="text-xs text-muted-foreground">Reasoning: {claim.reasoning}</p>}
+                      {claim.evidence_summary && <p className="text-xs text-muted-foreground">Summary: {claim.evidence_summary}</p>}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                     <span>By {formatAddress(claim.creator)}</span>
                     <span>•</span>
                     <span>{formatDate(claim.created_at)}</span>
-                    {claim.confidence > 0 && (
-                      <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" />Confidence: {(claim.confidence * 100).toFixed(0)}%</span>
-                    )}
                   </div>
                 </div>
 
@@ -133,8 +188,32 @@ export function ClaimList() {
                       <Button variant="ghost" size="sm" className="gap-1"><ExternalLink className="w-4 h-4" />Evidence</Button>
                     </a>
                   )}
+                  <Button variant="ghost" size="sm" className="gap-1" onClick={() => setExpandedClaim(expandedClaim === claim.id ? null : claim.id)}>
+                    {expandedClaim === claim.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {expandedClaim === claim.id ? "Hide" : "Actions"}
+                  </Button>
                 </div>
               </div>
+
+              {expandedClaim === claim.id && (
+                <div className="mt-4 pt-4 border-t border-border/50 space-y-4">
+                  {claim.status === "pending" && isOwner && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2"><Gavel className="w-4 h-4" /> Resolve Claim</h4>
+                      <ResolveClaimForm claimId={String(claim.id)} onResolved={refreshClaims} />
+                    </div>
+                  )}
+                  {claim.status !== "pending" && claim.creator.toLowerCase() === address?.toLowerCase() && Number(claim.appeal_count) < 3 && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2"><RotateCcw className="w-4 h-4" /> Appeal Claim</h4>
+                      <AppealClaimForm claimId={String(claim.id)} onAppealed={refreshClaims} />
+                    </div>
+                  )}
+                  {claim.status === "pending" && !isOwner && (
+                    <p className="text-xs text-muted-foreground text-center">Only the contract owner can resolve pending claims.</p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

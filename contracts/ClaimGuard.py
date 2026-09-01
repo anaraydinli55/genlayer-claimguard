@@ -39,8 +39,7 @@ class ClaimGuard(gl.Contract):
             "reasoning": "",
             "confidence": "0",
             "verdict": "PENDING",
-            "evidence_summary": "",
-            "created_at": str(0)
+            "evidence_summary": ""
         }
         self.claims = json.dumps(c, sort_keys=True)
         return cid

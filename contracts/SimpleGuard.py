@@ -1,3 +1,4 @@
+# { "Depends": "py-genlayer:latest" }
 import genlayer.gl as gl
 
 class SimpleGuard(gl.Contract):
@@ -6,17 +7,17 @@ class SimpleGuard(gl.Contract):
         self.message = "hello"
 
     @gl.public.write
-    def init(self):
+    def init(self) -> None:
         self.owner = str(gl.message.sender_address)
 
     @gl.public.write
-    def setMessage(self, msg):
+    def setMessage(self, msg: str) -> None:
         self.message = msg
 
     @gl.public.view
-    def getMessage(self):
+    def getMessage(self) -> str:
         return self.message
 
     @gl.public.view
-    def getOwner(self):
+    def getOwner(self) -> str:
         return self.owner

@@ -1,8 +1,9 @@
+# { "Depends": "py-genlayer:latest" }
 import json
 import genlayer.gl as gl
 
 class BountyManager(gl.Contract):
-    def __init__(self, claim_guard_address):
+    def __init__(self, claim_guard_address: str = ""):
         self.claim_guard_address = claim_guard_address
         self.bounty_count = "0"
         self.bounties = "{}"
@@ -10,100 +11,54 @@ class BountyManager(gl.Contract):
         self.min_bounty_amount = "500"
 
     @gl.public.write
-    def init(self):
-        self.owner = gl.message.sender_address
+    def init(self) -> None:
+        self.owner = str(gl.message.sender_address)
 
     @gl.public.write
-    def createBounty(self, title, description, reward_amount, evidence_url, expected_evidence):
+    def createBounty(self, title: str, description: str, reward_amount: str, evidence_url: str, expected_evidence: str) -> str:
         if int(reward_amount) < int(self.min_bounty_amount):
-            raise ValueError("Minimum bounty amount is " + self.min_bounty_amount)
+            raise gl.vm.UserError("Minimum bounty amount is " + self.min_bounty_amount)
 
         count = int(self.bounty_count) + 1
         self.bounty_count = str(count)
         bid = str(count)
 
-        b = json.loads(self.bounties)
+        b = json.loads(self.bounties) if self.bounties else {}
         b[bid] = {
             "id": bid,
-            "creator": gl.message.sender_address,
+            "creator": str(gl.message.sender_address),
             "title": title,
             "description": description,
             "reward_amount": reward_amount,
-            "claim_id": bid,
+            "evidence_url": evidence_url,
+            "expected_evidence": expected_evidence,
             "status": "open",
-            "assignee": "",
-            "created_at": "0",
-            "completed_at": "0"
+            "hunter": "",
+            "submission_url": ""
         }
-        self.bounties = json.dumps(b)
+        self.bounties = json.dumps(b, sort_keys=True)
+        gl.emit("BountyCreated", {"bounty_id": bid, "creator": str(gl.message.sender_address), "reward": reward_amount})
         return bid
 
-    @gl.public.write
-    def submitWork(self, bounty_id, proof_url):
-        b = json.loads(self.bounties)
-        if bounty_id not in b:
-            raise ValueError("Bounty not found")
-        bounty = b[bounty_id]
-        if bounty["status"] != "open":
-            raise ValueError("Bounty is " + bounty["status"])
-        bounty["assignee"] = gl.message.sender_address
-        bounty["status"] = "in_progress"
-        b[bounty_id] = bounty
-        self.bounties = json.dumps(b)
-        return "Work submitted for bounty " + bounty_id
-
-    @gl.public.write
-    def verifyAndRelease(self, bounty_id):
-        b = json.loads(self.bounties)
-        if bounty_id not in b:
-            raise ValueError("Bounty not found")
-        bounty = b[bounty_id]
-        if bounty["status"] != "in_progress":
-            raise ValueError("Bounty not in progress")
-        bounty["status"] = "completed"
-        bounty["completed_at"] = "0"
-        b[bounty_id] = bounty
-        self.bounties = json.dumps(b)
-        return "Bounty " + bounty_id + " verified and completed"
-
-    @gl.public.write
-    def cancelBounty(self, bounty_id):
-        b = json.loads(self.bounties)
-        if bounty_id not in b:
-            raise ValueError("Bounty not found")
-        bounty = b[bounty_id]
-        if gl.message.sender_address != bounty["creator"]:
-            raise ValueError("Only creator can cancel")
-        if bounty["status"] not in ["open", "in_progress"]:
-            raise ValueError("Cannot cancel completed bounty")
-        bounty["status"] = "cancelled"
-        b[bounty_id] = bounty
-        self.bounties = json.dumps(b)
-        return "Bounty " + bounty_id + " cancelled"
+    @gl.public.view
+    def getBounty(self, bounty_id: str) -> dict:
+        b = json.loads(self.bounties) if self.bounties else {}
+        if str(bounty_id) not in b:
+            raise gl.vm.UserError("Bounty not found")
+        return b[str(bounty_id)]
 
     @gl.public.view
-    def getBounty(self, bounty_id):
-        b = json.loads(self.bounties)
-        if bounty_id not in b:
-            raise ValueError("Bounty not found")
-        return b[bounty_id]
+    def getBountiesByStatus(self, status: str) -> list:
+        b = json.loads(self.bounties) if self.bounties else {}
+        return [x for x in b.values() if x["status"] == status]
 
     @gl.public.view
-    def getBountiesByStatus(self, status):
-        return [x for x in json.loads(self.bounties).values() if x["status"] == status]
-
-    @gl.public.view
-    def getOpenBounties(self):
+    def getOpenBounties(self) -> list:
         return self.getBountiesByStatus("open")
 
     @gl.public.view
-    def getStats(self):
-        b = json.loads(self.bounties)
+    def getStats(self) -> dict:
+        b = json.loads(self.bounties) if self.bounties else {}
         total = len(b)
-        completed = sum(1 for x in b.values() if x["status"] == "completed")
         open_b = sum(1 for x in b.values() if x["status"] == "open")
-        return {
-            "total_bounties": str(total),
-            "completed": str(completed),
-            "open": str(open_b)
-        }
+        return {"total_bounties": str(total), "open_bounties": str(open_b)}

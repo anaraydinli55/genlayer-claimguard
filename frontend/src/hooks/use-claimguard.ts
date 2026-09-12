@@ -50,7 +50,7 @@ export function useClaimGuard() {
     finally { setLoading(false) }
   }, [isConnected, getWriteClient])
 
-  const resolveClaim = useCallback(async (claimId: string, verdict: string, confidencePct: number, reasoning: string, evidenceSummary: string) => {
+  const resolveClaim = useCallback(async (claimId: string) => {
     if (!isConnected) throw new Error("Wallet not connected")
     setLoading(true); setError(null)
     try {
@@ -58,7 +58,7 @@ export function useClaimGuard() {
       return await client.writeContract({
         address: CLAIMGUARD_ADDRESS,
         functionName: "resolveClaim",
-        args: [claimId, verdict, String(confidencePct), reasoning, evidenceSummary],
+        args: [claimId],
         value: BigInt(0),
       })
     } catch (err: any) { setError(err.message); throw err }

@@ -186,14 +186,19 @@ def direct_alice():
 def direct_deploy(setup_genlayer_mock):
     import importlib.util
 
-    def _deploy(contract_path):
+    def _deploy(contract_path, *args, **kwargs):
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         full_path = os.path.join(project_root, contract_path)
 
-        spec = importlib.util.spec_from_file_location("ClaimGuard_deployed", full_path)
+        # Module/class name is derived from the contract file name itself
+        # (ClaimGuard.py -> ClaimGuard, BountyManager.py -> BountyManager),
+        # instead of being hardcoded to ClaimGuard for every deployed contract.
+        module_name = os.path.splitext(os.path.basename(contract_path))[0]
+        spec = importlib.util.spec_from_file_location(module_name, full_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        return module.ClaimGuard()
+        contract_class = getattr(module, module_name)
+        return contract_class(*args, **kwargs)
 
     return _deploy
